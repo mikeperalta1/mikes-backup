@@ -15,7 +15,7 @@ Honestly this is more of a wrapper around rsync's beautiful functionality. It si
 
 ## Command Line Arguments
 * ```--full``` Forces the script to run a *full* backup
-* ```--differential``` Forces the script to run an *incremental* backup
+* ```--differential``` Forces the script to run a *differential* backup
 * ```--log-dir <directory>``` Let's you set the log output directory
 * ```--source-dir <directory>``` Specifies the local source directory
 * ```--remote-host <hostname>``` Specifies the remote host, to send the backups to over ssh
