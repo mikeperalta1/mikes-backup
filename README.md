@@ -1,5 +1,5 @@
-# mikes-backup
-A simple script utilizing rsync for both full and differential backups, and auto folder naming, over SSH
+# Mikes Backup
+A simple python script utilizing rsync for both full and differential backups, and auto folder naming, over SSH
 
 Honestly this is more of a wrapper around rsync's beautiful functionality. It simply makes daily backups slightly easier by:
 * Automatically choosing a *full* or *differential* backup type, based on whether it detects an existing *full* backup folder
