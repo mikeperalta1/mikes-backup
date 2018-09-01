@@ -19,7 +19,7 @@ class MikesBackup:
 	_ssh_key = None
 	_quiet_ssh = True
 	#
-	_source_dir = None
+	_source_dirs = []
 	_source_dir_excludes = []
 	#
 	_force_full = False
@@ -44,7 +44,6 @@ class MikesBackup:
 		#	Simple mapped args
 		args_map = {
 			"--log-dir" : "_log_dir",
-			"--source-dir" : "_source_dir",
 			"--remote-host" : "_remote_host",
 			"--remote-user" : "_remote_user",
 			"--remote-dir" : "_remote_dir_base",
@@ -79,6 +78,11 @@ class MikesBackup:
 			elif arg == "--diff" or arg == "--differential":
 				valid_arg = True
 				self._force_differential = True
+			elif arg == "--source-dir":
+				valid_arg = True
+				self._source_dirs.append( sys.argv[ a + 1 ] )
+				print("Found source dir:", sys.argv[ a + 1 ])
+				a = a + 1
 			elif arg == "--exclude":
 				valid_arg = True
 				self._source_dir_excludes.append( sys.argv[ a + 1 ] )
@@ -148,13 +152,13 @@ class MikesBackup:
 		return self.DoesRemoteDirectoryExist(remote_path)
 	
 	#
-	def GetSourceDirectory(self):
+	def GetSourceDirectories(self):
 		
 		#
-		if self._source_dir == None:
-			raise Exception("No source directory specified")
+		if len(self._source_dirs) == 0:
+			raise Exception("No source directories specified")
 		
-		return self._source_dir
+		return self._source_dirs
 	
 	#
 	def DoBackup(self):
@@ -193,8 +197,8 @@ class MikesBackup:
 		#	Get directory
 		remote_dir = self.MakeRemoteFullBackupPath()
 		
-		#	Append source directory
-		args.append(self.GetSourceDirectory())
+		#	Append source directories
+		args.extend(self.GetSourceDirectories())
 		
 		#	Append remote destination directory
 		args.append( self._remote_user + "@" + self._remote_host + ":" + remote_dir)
@@ -219,8 +223,8 @@ class MikesBackup:
 		args.append("--link-dest")
 		args.append(remote_link_dest_dir)
 		
-		#	Append source directory
-		args.append(self.GetSourceDirectory())
+		#	Append source directories
+		args.extend(self.GetSourceDirectories())
 		
 		#	Append remote destination directory
 		args.append( self._remote_user + "@" + self._remote_host + ":" + remote_dir)
