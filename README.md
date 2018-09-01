@@ -28,7 +28,16 @@ Honestly this is more of a wrapper around rsync's beautiful functionality. It si
 For daily use, you'll probably want to create a small bash script that calls this script with the parameters you want, and then call that with cron daily (or whatever your preference is)
 ```#!/bin/bash
 
-/path/to/mikes-backup --log-dir "/my/log/dir" --source-dir "/home/or/whatever" --remote-host "my-awesome-host.home" --remote-user "me" --remote-dir "/path/to/backup/destination/on/remote/" --ssh-key "/home/me/.ssh/id_rsa" --exclude "/my/dumb/downloads"
+/path/to/mikes-backup \
+  --log-dir "/my/log/dir" \
+  --source-dir "/home/or/whatever" \
+  --remote-host "my-awesome-host.home" \
+  --remote-user "me" \
+  --remote-dir "/path/to/backup/destination/on/remote/" \
+  --ssh-key "/home/me/.ssh/id_rsa" \
+  --exclude "/my/dumb/downloads" \
+  --exclude "/my/even/dumber/downloads"
+
 ```
 
 ## Questions
