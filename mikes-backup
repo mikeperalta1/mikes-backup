@@ -1,0 +1,422 @@
+#!/usr/bin/env python3
+
+#
+import datetime
+import os
+import shlex
+import subprocess
+import sys
+
+#
+class MikesBackup:
+	
+	#
+	_log_dir = None
+	_remote_host = None
+	_remote_user = None
+	_remote_dir_base = None
+	#
+	_ssh_key = None
+	_quiet_ssh = True
+	#
+	_source_dir = None
+	_source_dir_excludes = []
+	#
+	_force_full = False
+	_force_differential = False
+	
+	
+	#
+	def __init__(self):
+		self.ParseArgs()
+	
+	#
+	def eprint(*args, **kwargs):
+		print(*args, file=sys.stderr, **kwargs)
+	
+	#
+	def log():
+		pass
+		
+	#
+	def ParseArgs(self):
+		
+		#	Simple mapped args
+		args_map = {
+			"--log-dir" : "_log_dir",
+			"--source-dir" : "_source_dir",
+			"--remote-host" : "_remote_host",
+			"--remote-user" : "_remote_user",
+			"--remote-dir" : "_remote_dir_base",
+			"--ssh-key" : "_ssh_key"
+		}
+		
+		#
+		print()
+		print ("Parsing arguments")
+		a = 1
+		while a < len(sys.argv):
+			
+			#
+			arg = sys.argv[a]
+			
+			#
+			valid_arg = False
+			for arg_name in args_map:
+				if arg == arg_name:
+					valid_arg = True
+					self_var_name = args_map[arg_name]
+					self_var_value = sys.argv[ a + 1 ]
+					self.__dict__[self_var_name] = self_var_value
+					print("Found argument \"", arg_name, "\" ==>", self_var_value)
+					a = a + 1
+					break
+			if arg == "":
+				valid_arg = True
+			elif arg == "--full":
+				valid_arg = True
+				self._force_full = True
+			elif arg == "--diff" or arg == "--differential":
+				valid_arg = True
+				self._force_differential = True
+			elif arg == "--exclude":
+				valid_arg = True
+				self._source_dir_excludes.append( sys.argv[ a + 1 ] )
+				print("Found exclude dir:", sys.argv[ a + 1 ])
+				a = a + 1
+			
+			a = a + 1
+			
+			#
+			if not valid_arg:
+				raise Exception("Invalid argument:", arg);
+	
+	#
+	def GetDatetimeForFilename(self):
+		
+		#
+		return datetime.datetime.now().strftime('%Y-%b-%d_%I%M%p')
+	
+	#
+	def DemandSSHStuff(self):
+		
+		#
+		if self._remote_host == None:
+			raise Exception("Please provide remote host")
+		if self._remote_user == None:
+			raise Exception("Please provide remote user")
+		if self._remote_dir_base == None:
+			raise Exception("Please provide remote backup destination directory")
+	
+	#
+	def DoesRemoteDirectoryExist(self, remote_path):
+		
+		#
+		command = [
+			"[ -d " + remote_path + " ]"
+		]
+		
+		#
+		print("Trying to determine if remote path exists:", remote_path)
+		code, stdout, stderr = self.ExecuteRemoteSSHCommand(command)
+		if code == 0:
+			print("Remote dir was found: " + remote_path)
+			return True
+		
+		#
+		print("Remote dir didn't seem to exist: " + remote_path)
+		return False
+	
+	#
+	def DemandRemoteBaseBackupDirectory(self):
+		
+		#
+		remote_path = self._remote_dir_base
+		
+		#
+		if self.DoesRemoteDirectoryExist(remote_path) == False:
+			raise Exception("Remote backup directory doesn't exist: " + remote_path)
+		
+	#
+	def DoesRemoteFullBackupDirectoryExist(self):
+		
+		#
+		remote_path = self.MakeRemoteFullBackupPath()
+		
+		#
+		print("Trying to determine if remote Full backup path exists:", remote_path)
+		return self.DoesRemoteDirectoryExist(remote_path)
+	
+	#
+	def GetSourceDirectory(self):
+		
+		#
+		if self._source_dir == None:
+			raise Exception("No source directory specified")
+		
+		return self._source_dir
+	
+	#
+	def DoBackup(self):
+		
+		#
+		print()
+		print("Enter: DoBackup")
+		
+		#	Remote base dir must exist
+		self.DemandRemoteBaseBackupDirectory()
+		
+		#	Forced full or differential by args?
+		if self._force_full == True or self._force_differential == True:
+			if self._force_full == True:
+				print("Forcing full backup")
+				self.DoFullBackup()
+			else:
+				print("Forcing differential backup")
+				self.DoDifferentialBackup()
+			return
+		
+		#	Automatically choose full or differential 
+		if self.DoesRemoteFullBackupDirectoryExist():
+			print("Automatically choosing differential backup, because full backup remote dir already exists")
+			self.DoDifferentialBackup()
+		else:
+			print("Automatically choosing full backup, because full backup remote dir wasn't found")
+			self.DoFullBackup()
+	
+	#
+	def DoFullBackup(self):
+		
+		#	Start args
+		args = []
+		
+		#	Get directory
+		remote_dir = self.MakeRemoteFullBackupPath()
+		
+		#	Append source directory
+		args.append(self.GetSourceDirectory())
+		
+		#	Append remote destination directory
+		args.append( self._remote_user + "@" + self._remote_host + ":" + remote_dir)
+		
+		#print("Args", str(args))
+		print("Remote dir:", remote_dir)
+		
+		self.ExecuteRsync(args)
+	
+	#
+	def DoDifferentialBackup(self):
+		
+		#	Start args
+		args = []
+		
+		#	Get directories
+		remote_link_dest_dir = self.MakeRemoteFullBackupPath()
+		remote_dir = self.MakeRemoteDifferentialBackupPath()
+		self.EnsureRemoteDirectory(remote_dir)
+		
+		#	Add link dest arg
+		args.append("--link-dest")
+		args.append(remote_link_dest_dir)
+		
+		#	Append source directory
+		args.append(self.GetSourceDirectory())
+		
+		#	Append remote destination directory
+		args.append( self._remote_user + "@" + self._remote_host + ":" + remote_dir)
+		
+		#print("Args", str(args))
+		print("Remote link dest dir:", remote_link_dest_dir)
+		print("Remote dir:", remote_dir)
+		
+		self.ExecuteRsync(args)
+	
+	#
+	def MakeLogDirectoryPath(self):
+		
+		#
+		log_dir = self._log_dir
+		if log_dir == None:
+			print("No log directory specified; Defaulting to current working directory")
+			log_dir = "."
+		
+		return log_dir
+		
+	#
+	def MakeLogPath(self):
+		
+		#	Log dir
+		log_dir = self.MakeLogDirectoryPath()
+		
+		#	Path
+		log_path = os.path.join(log_dir, self.GetDatetimeForFilename() + ".log")
+		
+		return log_path
+	
+	#
+	def MakeRemoteFullBackupPath(self):
+		
+		#
+		if self._remote_dir_base == None:
+			raise Exception("No remote directory was specified")
+		
+		#
+		return os.path.join(self._remote_dir_base, "Full")
+	
+	#
+	def MakeRemoteDifferentialBackupPath(self):
+		
+		#
+		if self._remote_dir_base == None:
+			raise Exception("No remote directory was specified")
+		
+		#
+		return os.path.join(self._remote_dir_base, "Differential", self.GetDatetimeForFilename())
+	
+	#
+	def EnsureLocalDirectory(self, d):
+		
+		#
+		if not os.path.exists(d):
+			os.makedirs(d)
+	
+	#
+	def EnsureRemoteDirectory(self, d):
+		
+		#
+		if not self.DoesRemoteDirectoryExist(d):
+			
+			#
+			command = [
+				"mkdir",
+				"--parents",
+				d
+			]
+			self.ExecuteRemoteSSHCommand(command)
+	
+	#
+	def StartRsyncArgs(self):
+		
+		#
+		self.EnsureLocalDirectory(self.MakeLogDirectoryPath())
+		args = [
+			"rsync",
+			"--log-file", self.MakeLogPath(),
+			"--archive",
+			"--compress",
+			"--progress",
+			"--stats",
+			"--human-readable",
+			"--itemize-changes",
+			"--one-file-system",
+			"--delete",
+			"--delete-excluded"
+		]
+		
+		#
+		for e in self._source_dir_excludes:
+			args.append("--exclude")
+			args.append(e)
+		
+		#
+		#args.append("--dry-run") # DEBUG !!!
+		
+		return args
+	
+	#
+	def StartRsyncEnvironmentalVariables(self):
+		
+		#
+		env = {}
+		
+		#
+		if self._ssh_key != None or self._quiet_ssh == True:
+			env["RSYNC_RSH"] = "ssh"
+			if self._ssh_key != None:
+				env["RSYNC_RSH"] += " -i " + shlex.quote(self._ssh_key)
+			if self._quiet_ssh == True:
+				env["RSYNC_RSH"] += " -q"
+		
+		return env
+	
+	#
+	def ExecuteRemoteSSHCommand(self, command):
+		
+		#
+		self.DemandSSHStuff()
+		
+		#
+		args = []
+		
+		#	ssh command
+		args.append("ssh")
+		
+		#	Quiet?
+		if self._quiet_ssh == True:
+			args.append("-q")
+		
+		#	ssh key
+		if self._ssh_key != None:
+			args.append("-i")
+			args.append(self._ssh_key)
+		
+		#	ssh user@host
+		args.append(self._remote_user + "@" + self._remote_host)
+		
+		#	Append the command
+		args.append("--")
+		if isinstance(command, str):
+			args.append(command)
+		elif isinstance(command, list):
+			args.extend(command)
+		else:
+			raise Exception("Unsupported command datatype")
+		
+		#	Spawn SSH in shell
+		#process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		process = subprocess.Popen(args)
+		#stdout, stderr = process.communicate()
+		process.communicate()
+		stdout = ""
+		stderr = ""
+		#print (stderr.decode())
+		
+		return (process.returncode, stdout, stderr)
+	
+	#
+	def ExecuteRsync(self, _args):
+		
+		#
+		self.DemandSSHStuff()
+		
+		#
+		args = self.StartRsyncArgs()
+		args.extend(_args)
+		#print(str(args))
+		
+		#
+		env = self.StartRsyncEnvironmentalVariables()
+		
+		#	Spawn Rsync in shell
+		#process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+		process = subprocess.Popen(args, env=env)
+		#stdout, stderr = process.communicate()
+		process.communicate()
+		#self.eprint(stderr.decode())
+		
+		stdout = ""
+		stderr = ""
+		
+		return (process.returncode, stdout, stderr)
+
+#
+if __name__ == "__main__":
+	
+	#
+	b = MikesBackup()
+	b.DoBackup()
+
+
+
+
+
