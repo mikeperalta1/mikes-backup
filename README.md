@@ -26,7 +26,8 @@ Honestly this is more of a wrapper around rsync's beautiful functionality. It si
 
 ##  Example
 For daily use, you'll probably want to create a small bash script that calls this script with the parameters you want, and then call that with cron daily (or whatever your preference is)
-```#!/bin/bash
+```
+#!/bin/bash
 
 /path/to/mikes-backup \
   --log-dir "/my/log/dir" \
