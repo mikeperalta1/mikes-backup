@@ -14,7 +14,7 @@ class MikesBackup:
 	_log_dir = None
 	_remote_host = None
 	_remote_user = None
-	_remote_dir_base = None
+	_destination_dir_base = None
 	#
 	_ssh_key = None
 	_quiet_ssh = True
@@ -46,7 +46,7 @@ class MikesBackup:
 			"--log-dir" : "_log_dir",
 			"--remote-host" : "_remote_host",
 			"--remote-user" : "_remote_user",
-			"--remote-dir" : "_remote_dir_base",
+			"--destination-dir" : "_destination_dir_base",
 			"--ssh-key" : "_ssh_key"
 		}
 		
@@ -102,54 +102,85 @@ class MikesBackup:
 		return datetime.datetime.now().strftime('%Y-%b-%d_%I%M%p')
 	
 	#
-	def DemandSSHStuff(self):
+	def IsUsingSSH(self):
 		
 		#
-		if self._remote_host == None:
-			raise Exception("Please provide remote host")
-		if self._remote_user == None:
-			raise Exception("Please provide remote user")
-		if self._remote_dir_base == None:
-			raise Exception("Please provide remote backup destination directory")
-	
-	#
-	def DoesRemoteDirectoryExist(self, remote_path):
-		
-		#
-		command = [
-			"[ -d " + remote_path + " ]"
-		]
-		
-		#
-		print("Trying to determine if remote path exists:", remote_path)
-		code, stdout, stderr = self.ExecuteRemoteSSHCommand(command)
-		if code == 0:
-			print("Remote dir was found: " + remote_path)
+		if self._remote_host != None or self._remote_user != None or self._ssh_key != None:
 			return True
 		
-		#
-		print("Remote dir didn't seem to exist: " + remote_path)
 		return False
 	
 	#
-	def DemandRemoteBaseBackupDirectory(self):
+	def DemandSSHConfig(self):
 		
 		#
-		remote_path = self._remote_dir_base
+		if self.IsUsingSSH():
+			if self._remote_host == None:
+				raise Exception("Please provide remote host")
+			if self._remote_user == None:
+				raise Exception("Please provide remote user")
+	
+	#
+	def DemandDestinationDirectoryConfig(self):
 		
 		#
-		if self.DoesRemoteDirectoryExist(remote_path) == False:
-			raise Exception("Remote backup directory doesn't exist: " + remote_path)
+		if self._destination_dir_base == None:
+			raise Exception("Please provide backup destination directory")
+	
+	#
+	def DoesDestinationDirectoryExist(self, destination_path):
+		
+		#
+		print("Trying to determine if destination path exists:", destination_path)
+		
+		#	Local?
+		if not self.IsUsingSSH():
+			print("Checking for local destination path")
+			if os.path.isdir(destination_path):
+				print("Local destination path exists")
+				return True
+			else:
+				print("Local destination path does not exist")
+				return False
+		
+		#
+		print("Checking for remote destination path")
+		command = [
+			"[ -d " + destination_path + " ]"
+		]
+		
+		#
+		code, stdout, stderr = self.ExecuteRemoteSSHCommand(command)
+		if code == 0:
+			print("Remote destination dir was found: " + destination_path)
+			return True
+		
+		#
+		print("Remote dir didn't seem to exist: " + destination_path)
+		return False
+	
+	#
+	def DemandDestinationBaseBackupDirectory(self):
+		
+		#
+		self.DemandDestinationDirectoryConfig()
+		
+		#
+		destination_path = self._destination_dir_base
+		
+		#
+		if self.DoesDestinationDirectoryExist(destination_path) == False:
+			raise Exception("Backup destination directory doesn't exist: " + destination_path)
 		
 	#
-	def DoesRemoteFullBackupDirectoryExist(self):
+	def DoesFullBackupDestinationDirectoryExist(self):
 		
 		#
-		remote_path = self.MakeRemoteFullBackupPath()
+		dir_path = self.MakeFullBackupDestinationPath()
 		
 		#
-		print("Trying to determine if remote Full backup path exists:", remote_path)
-		return self.DoesRemoteDirectoryExist(remote_path)
+		print("Trying to determine if Full backup destination directory exists:", dir_path)
+		return self.DoesDestinationDirectoryExist(dir_path)
 	
 	#
 	def GetSourceDirectories(self):
@@ -168,7 +199,7 @@ class MikesBackup:
 		print("Enter: DoBackup")
 		
 		#	Remote base dir must exist
-		self.DemandRemoteBaseBackupDirectory()
+		self.DemandDestinationBaseBackupDirectory()
 		
 		#	Forced full or differential by args?
 		if self._force_full == True or self._force_differential == True:
@@ -181,11 +212,11 @@ class MikesBackup:
 			return
 		
 		#	Automatically choose full or differential 
-		if self.DoesRemoteFullBackupDirectoryExist():
-			print("Automatically choosing differential backup, because full backup remote dir already exists")
+		if self.DoesFullBackupDestinationDirectoryExist():
+			print("Automatically choosing differential backup, because full backup destination directory already exists")
 			self.DoDifferentialBackup()
 		else:
-			print("Automatically choosing full backup, because full backup remote dir wasn't found")
+			print("Automatically choosing full backup, because full backup destination directory wasn't found")
 			self.DoFullBackup()
 	
 	#
@@ -194,17 +225,18 @@ class MikesBackup:
 		#	Start args
 		args = []
 		
-		#	Get directory
-		remote_dir = self.MakeRemoteFullBackupPath()
+		#	Get destination directory
+		destination_dir = self.MakeFullBackupDestinationPath()
 		
 		#	Append source directories
 		args.extend(self.GetSourceDirectories())
 		
 		#	Append remote destination directory
-		args.append( self._remote_user + "@" + self._remote_host + ":" + remote_dir)
+		#args.append( self._remote_user + "@" + self._remote_host + ":" + remote_dir)
+		args.append( self.MakeRsyncRemoteDestinationPart(destination_dir) )
 		
 		#print("Args", str(args))
-		print("Remote dir:", remote_dir)
+		print("Destination dir:", destination_dir)
 		
 		self.ExecuteRsync(args)
 	
@@ -215,23 +247,24 @@ class MikesBackup:
 		args = []
 		
 		#	Get directories
-		remote_link_dest_dir = self.MakeRemoteFullBackupPath()
-		remote_dir = self.MakeRemoteDifferentialBackupPath()
-		self.EnsureRemoteDirectory(remote_dir)
+		link_dest_dir = self.MakeFullBackupDestinationPath()
+		destination_dir = self.MakeRemoteDifferentialBackupPath()
+		self.EnsureDestinationDirectory(destination_dir)
 		
 		#	Add link dest arg
 		args.append("--link-dest")
-		args.append(remote_link_dest_dir)
+		args.append(link_dest_dir)
 		
 		#	Append source directories
 		args.extend(self.GetSourceDirectories())
 		
 		#	Append remote destination directory
-		args.append( self._remote_user + "@" + self._remote_host + ":" + remote_dir)
+		#args.append( self._remote_user + "@" + self._remote_host + ":" + remote_dir)
+		args.append( self.MakeRsyncRemoteDestinationPart(destination_dir) )
 		
 		#print("Args", str(args))
-		print("Remote link dest dir:", remote_link_dest_dir)
-		print("Remote dir:", remote_dir)
+		print("Link destination dir:", link_dest_dir)
+		print("Destination dir:", destination_dir)
 		
 		self.ExecuteRsync(args)
 	
@@ -258,24 +291,41 @@ class MikesBackup:
 		return log_path
 	
 	#
-	def MakeRemoteFullBackupPath(self):
+	def MakeFullBackupDestinationPath(self):
 		
 		#
-		if self._remote_dir_base == None:
+		if self._destination_dir_base == None:
 			raise Exception("No remote directory was specified")
 		
 		#
-		return os.path.join(self._remote_dir_base, "Full")
+		return os.path.join(self._destination_dir_base, "Full")
 	
 	#
 	def MakeRemoteDifferentialBackupPath(self):
 		
 		#
-		if self._remote_dir_base == None:
+		if self._destination_dir_base == None:
 			raise Exception("No remote directory was specified")
 		
 		#
-		return os.path.join(self._remote_dir_base, "Differential", self.GetDatetimeForFilename())
+		return os.path.join(self._destination_dir_base, "Differential", self.GetDatetimeForFilename())
+	
+	#
+	def MakeRsyncRemoteDestinationPart(self, destination_dir):
+		
+		#
+		part = ""
+		
+		#
+		if self._remote_host != None:
+			if self._remote_user != None:
+				part += self._remote_user + "@"
+			part += self._remote_host + ":"
+			
+		#
+		part += destination_dir
+		
+		return part
 	
 	#
 	def EnsureLocalDirectory(self, d):
@@ -285,18 +335,24 @@ class MikesBackup:
 			os.makedirs(d)
 	
 	#
-	def EnsureRemoteDirectory(self, d):
+	def EnsureDestinationDirectory(self, d):
 		
 		#
-		if not self.DoesRemoteDirectoryExist(d):
+		if not self.DoesDestinationDirectoryExist(d):
 			
 			#
-			command = [
-				"mkdir",
-				"--parents",
-				d
-			]
-			self.ExecuteRemoteSSHCommand(command)
+			print("Destination directory doesn't exist; Will create:", d)
+			
+			#
+			if self.IsUsingSSH():
+				command = [
+					"mkdir",
+					"--parents",
+					d
+				]
+				self.ExecuteRemoteSSHCommand(command)
+			else:
+				os.makedirs(d)
 	
 	#
 	def StartRsyncArgs(self):
@@ -347,7 +403,7 @@ class MikesBackup:
 	def ExecuteRemoteSSHCommand(self, command):
 		
 		#
-		self.DemandSSHStuff()
+		self.DemandSSHConfig()
 		
 		#
 		args = []
@@ -390,8 +446,10 @@ class MikesBackup:
 	#
 	def ExecuteRsync(self, _args):
 		
-		#
-		self.DemandSSHStuff()
+		#	Demand stuff
+		self.DemandDestinationDirectoryConfig()
+		if self.IsUsingSSH():
+			self.DemandSSHConfig()
 		
 		#
 		args = self.StartRsyncArgs()
@@ -400,6 +458,12 @@ class MikesBackup:
 		
 		#
 		env = self.StartRsyncEnvironmentalVariables()
+		
+		#
+		#print("Debug -> Want to execute Rsync")
+		#print("Args:", str(args))
+		#print("Env:", str(env))
+		#return (0, "", "")
 		
 		#	Spawn Rsync in shell
 		#process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
