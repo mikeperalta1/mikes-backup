@@ -403,7 +403,16 @@ class MikesBackup:
 		self.log("Renaming temporary directory")
 		self.log("Old: " + destination_dir_in_progress)
 		self.log("New: " + destination_dir_final)
-		os.rename(destination_dir_in_progress, destination_dir_final)
+		if self.is_using_ssh():
+			return_code, stdout, stderr = self.execute_remote_ssh_command([
+				"mv",
+				destination_dir_in_progress,
+				destination_dir_final
+			])
+			if return_code != 0:
+				raise Exception("Failed to move temporary diff directory to its final home")
+		else:
+			os.rename(destination_dir_in_progress, destination_dir_final)
 		self.log("Rename was successful")
 	
 	#
