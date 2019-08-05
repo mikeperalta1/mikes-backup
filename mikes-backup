@@ -30,6 +30,7 @@ class MikesBackup:
 	
 	__force_full = False
 	__force_differential = False
+	__no_incremental = False
 	
 	__log_file_handle = None
 	
@@ -59,12 +60,13 @@ class MikesBackup:
 		s += "\nDestination Dir Base: " + str(self.__destination_dir_base)
 		s += "\nSource Dir (Main): " + str(self.__source_dir)
 		s += "\nSource Dirs (Includes): " + str(self.__source_dir_includes)
-		s += "\nSource Dir Excludes: " + str(self.__source_dir_excludes)
+		s += "\nSource Dirs (Excludes): " + str(self.__source_dir_excludes)
 		s += "\nSource Mountpoint Demands: " + str(self.__source_mountpoint_demands)
 		s += "\nSSH Key: " + str(self.__ssh_key)
 		s += "\nQuiet SSH: " + str(self.__quiet_ssh)
 		s += "\nForce Full Backup: " + str(self.__force_full)
 		s += "\nForce Differential: " + str(self.__force_differential)
+		s += "\nDisallow Incremental: " + str(self.__no_incremental)
 		
 		return s
 	
@@ -141,6 +143,10 @@ class MikesBackup:
 				valid_arg = True
 				self.__force_differential = True
 				self.log("Forcing a differential backup")
+			elif arg == "--no-incremental":
+				valid_arg = True
+				self.__no_incremental = True
+				self.log("Disallowing incremental backups (differentials will only link back to full)")
 			elif arg == "--log-dir":
 				valid_arg = True
 				self.__log_dir = sys.argv[a + 1]
@@ -534,7 +540,10 @@ class MikesBackup:
 		if not newest_path:
 			self.log("Didn't find a \"Full\" backup on remote")
 		
-		# TODO: Add CLI option to disable incrementals (ie: don't consider the diff dirs for the rsync link arg)
+		if self.__no_incremental:
+			self.log("Incremental backups are disabled; Won't consider any differential directories for the link target")
+			return newest_path
+		
 		# Get listing info for all differential directories
 		differential_path_base = self.make_remote_differential_backup_path_base()
 		return_code, stdout, stderr = self.execute_remote_ssh_command([
