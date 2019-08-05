@@ -57,15 +57,6 @@ class MikesBackup:
 	#
 	def parse_args(self):
 		
-		# Simple mapped args
-		args_map = {
-			"--log-dir": "__log_dir",
-			"--remote-host": "__remote_host",
-			"--remote-user": "__remote_user",
-			"--destination-dir": "__destination_dir_base",
-			"--ssh-key": "__ssh_key"
-		}
-		
 		#
 		print()
 		self.log("Parsing arguments")
@@ -79,15 +70,6 @@ class MikesBackup:
 			
 			#
 			valid_arg = False
-			for arg_name in args_map:
-				if arg == arg_name:
-					valid_arg = True
-					self_var_name = args_map[arg_name]
-					self_var_value = sys.argv[a + 1]
-					self.__dict__[self_var_name] = self_var_value
-					self.log("Found argument \"" + arg_name + "\" ==>" + self_var_value)
-					a = a + 1
-					break
 			if arg == "":
 				valid_arg = True
 			elif arg == "--full":
@@ -96,6 +78,11 @@ class MikesBackup:
 			elif arg == "--diff" or arg == "--differential":
 				valid_arg = True
 				self.__force_differential = True
+			elif arg == "--log-dir":
+				valid_arg = True
+				self.__log_dir = sys.argv[a + 1]
+				self.log("Found log dir: " + self.__log_dir)
+				a = a + 1
 			elif arg == "--source-dir":
 				valid_arg = True
 				self.__source_dirs.append(sys.argv[a + 1])
@@ -111,6 +98,26 @@ class MikesBackup:
 				self.__source_mountpoint_demands.append(sys.argv[a + 1])
 				self.log("Found demanded source mountpoint: " + sys.argv[a + 1])
 				a += 1
+			elif arg == "--destination-dir":
+				valid_arg = True
+				self.__destination_dir_base = sys.argv[a + 1]
+				self.log("Found destination dir: " + self.__destination_dir_base)
+				a = a + 1
+			elif arg == "--remote-host":
+				valid_arg = True
+				self.__remote_host = sys.argv[a + 1]
+				self.log("Found remote host: " + self.__remote_host)
+				a = a + 1
+			elif arg == "--remote-user":
+				valid_arg = True
+				self.__remote_user = sys.argv[a + 1]
+				self.log("Found remote user: " + self.__remote_user)
+				a = a + 1
+			elif arg == "--ssh-key":
+				valid_arg = True
+				self.__ssh_key = sys.argv[a + 1]
+				self.log("Found ssh key: " + self.__ssh_key)
+				a = a + 1
 			
 			#
 			if not valid_arg:
