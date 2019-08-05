@@ -546,6 +546,7 @@ class MikesBackup:
 		
 		# Get listing info for all differential directories
 		differential_path_base = self.make_remote_differential_backup_path_base()
+		self.ensure_destination_directory(differential_path_base)
 		return_code, stdout, stderr = self.execute_remote_ssh_command([
 			"ls",
 			"-l",
