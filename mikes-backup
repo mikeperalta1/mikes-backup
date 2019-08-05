@@ -35,6 +35,21 @@ class MikesBackup:
 		self.parse_args()
 	
 	#
+	def log(self, s, o=None):
+	
+		the_date = self.get_datetime_for_logging()
+		
+		to_log = "[MikesBackup][" + the_date + "] " + s
+		
+		print(to_log)
+		
+		# Recurse in order to print whatever o is outputting, if anything
+		if o is not None:
+			o_lines = str(o).split("\n")
+			for line in o_lines:
+				self.log(line)
+	
+	#
 	def eprint(*args, **kwargs):
 		
 		print(*args, file=sys.stderr, **kwargs)
@@ -53,7 +68,7 @@ class MikesBackup:
 		
 		#
 		print()
-		print("Parsing arguments")
+		self.log("Parsing arguments")
 		a = 0
 		while a + 1 < len(sys.argv):
 			
@@ -70,7 +85,7 @@ class MikesBackup:
 					self_var_name = args_map[arg_name]
 					self_var_value = sys.argv[a + 1]
 					self.__dict__[self_var_name] = self_var_value
-					print("Found argument \"", arg_name, "\" ==>", self_var_value)
+					self.log("Found argument \"" + arg_name + "\" ==>" + self_var_value)
 					a = a + 1
 					break
 			if arg == "":
@@ -84,22 +99,28 @@ class MikesBackup:
 			elif arg == "--source-dir":
 				valid_arg = True
 				self.__source_dirs.append(sys.argv[a + 1])
-				print("Found source dir:", sys.argv[a + 1])
+				self.log("Found source dir: " + sys.argv[a + 1])
 				a = a + 1
 			elif arg == "--exclude":
 				valid_arg = True
 				self.__source_dir_excludes.append(sys.argv[a + 1])
-				print("Found exclude dir:", sys.argv[a + 1])
+				self.log("Found exclude dir: " + sys.argv[a + 1])
 				a = a + 1
 			elif arg == "--source-mountpoint":
 				valid_arg = True
 				self.__source_mountpoint_demands.append(sys.argv[a + 1])
-				print("Found demanded source mountpoint:", sys.argv[a + 1])
+				self.log("Found demanded source mountpoint: " + sys.argv[a + 1])
 				a += 1
 			
 			#
 			if not valid_arg:
 				raise Exception("Invalid argument:", arg)
+	
+	@staticmethod
+	def get_datetime_for_logging():
+		
+		#
+		return datetime.datetime.now().strftime("%b %d %Y; %I%M%p")
 	
 	@staticmethod
 	def get_datetime_for_filename():
@@ -113,7 +134,7 @@ class MikesBackup:
 		for mountpoint_path in self.__source_mountpoint_demands:
 			if not os.path.ismount(mountpoint_path):
 				raise Exception("Demanded mountpoint is not mounted: " + str(mountpoint_path))
-			print("Verified mountpoint:", mountpoint_path)
+			self.log("Verified mountpoint: " + mountpoint_path)
 	
 	#
 	def is_using_ssh(self):
@@ -149,20 +170,20 @@ class MikesBackup:
 	def does_destination_directory_exist(self, destination_path):
 		
 		#
-		print("Trying to determine if destination path exists:", destination_path)
+		self.log("Trying to determine if destination path exists:" + destination_path)
 		
 		# Local?
 		if not self.is_using_ssh():
-			print("Checking for local destination path")
+			self.log("Checking for local destination path")
 			if os.path.isdir(destination_path):
-				print("Local destination path exists")
+				self.log("Local destination path exists")
 				return True
 			else:
-				print("Local destination path does not exist")
+				self.log("Local destination path does not exist")
 				return False
 		
 		#
-		print("Checking for remote destination path")
+		self.log("Checking for remote destination path")
 		command = [
 			"[ -d " + destination_path + " ]"
 		]
@@ -170,11 +191,11 @@ class MikesBackup:
 		#
 		code, stdout, stderr = self.execute_remote_ssh_command(command)
 		if code == 0:
-			print("Remote destination dir was found: " + destination_path)
+			self.log("Remote destination dir was found: " + destination_path)
 			return True
 		
 		#
-		print("Remote dir didn't seem to exist: " + destination_path)
+		self.log("Remote dir didn't seem to exist: " + destination_path)
 		return False
 	
 	#
@@ -197,7 +218,7 @@ class MikesBackup:
 		dir_path = self.make_full_backup_destination_path()
 		
 		#
-		print("Trying to determine if Full backup destination directory exists:", dir_path)
+		self.log("Trying to determine if Full backup destination directory exists:", dir_path)
 		return self.does_destination_directory_exist(dir_path)
 	
 	#
@@ -214,7 +235,7 @@ class MikesBackup:
 		
 		#
 		print()
-		print("Enter: do_backup")
+		self.log("Enter: do_backup")
 		
 		# Source mountpoints must be mounted
 		self.demand_source_mountpoints()
@@ -222,22 +243,24 @@ class MikesBackup:
 		# Remote base dir must exist
 		self.demand_destination_base_backup_directory()
 		
+		raise Exception("Just testing")
+		
 		# Forced full or differential by args?
 		if self.__force_full is True or self.__force_differential is True:
 			if self.__force_full is True:
-				print("Forcing full backup")
+				self.log("Forcing full backup")
 				self.do_full_backup()
 			else:
-				print("Forcing differential backup")
+				self.log("Forcing differential backup")
 				self.do_differential_backup()
 			return
 		
 		# Automatically choose full or differential
 		if self.does_full_backup_destination_directory_exist():
-			print("Automatically choosing differential backup, because full backup destination directory already exists")
+			self.log("Automatically choosing differential backup, because full backup destination directory already exists")
 			self.do_differential_backup()
 		else:
-			print("Automatically choosing full backup, because full backup destination directory wasn't found")
+			self.log("Automatically choosing full backup, because full backup destination directory wasn't found")
 			self.do_full_backup()
 	
 	#
@@ -257,7 +280,7 @@ class MikesBackup:
 		args.append(self.make_rsync_remote_destination_part(destination_dir))
 		
 		# print("Args", str(args))
-		print("Destination dir:", destination_dir)
+		self.log("Destination dir:" + destination_dir)
 		
 		self.execute_rsync(args)
 	
@@ -284,8 +307,8 @@ class MikesBackup:
 		args.append(self.make_rsync_remote_destination_part(destination_dir))
 		
 		# print("Args", str(args))
-		print("Link destination dir:", link_dest_dir)
-		print("Destination dir:", destination_dir)
+		self.log("Link destination dir:" + link_dest_dir)
+		self.log("Destination dir:" + destination_dir)
 		
 		self.execute_rsync(args)
 	
@@ -295,7 +318,7 @@ class MikesBackup:
 		#
 		log_dir = self.__log_dir
 		if log_dir is None:
-			print("No log directory specified; Defaulting to current working directory")
+			self.log("No log directory specified; Defaulting to current working directory")
 			log_dir = "."
 		
 		return log_dir
@@ -362,7 +385,7 @@ class MikesBackup:
 		if not self.does_destination_directory_exist(d):
 			
 			#
-			print("Destination directory doesn't exist; Will create:", d)
+			self.log("Destination directory doesn't exist; Will create:" + d)
 			
 			#
 			if self.is_using_ssh():
