@@ -81,11 +81,9 @@ class MikesBackup:
 		print(to_log)
 		
 		# Append the log line to the log file
-		log_file_path = self.make_log_path()
-		if log_file_path:
-			f = open(log_file_path, "a+")
+		f = self.open_log_file()
+		if f:
 			f.write(to_log + "\n")
-			f.close()
 		
 		# Recurse in order to print whatever o is outputting, if anything
 		if o is not None:
@@ -423,8 +421,8 @@ class MikesBackup:
 		#
 		log_dir = self.__log_dir
 		if log_dir is None:
-			print("No log directory specified; Defaulting to current working directory")
-			log_dir = "."
+			print("No log directory specified; Won't log")
+			return None
 		
 		return log_dir
 		
@@ -433,6 +431,8 @@ class MikesBackup:
 		
 		# Log dir
 		log_dir = self.make_log_directory_path()
+		if not log_dir:
+			return None
 		
 		# Path
 		log_path = os.path.join(log_dir, self.get_datetime_for_filename() + ".log")
@@ -623,10 +623,8 @@ class MikesBackup:
 	def start_rsync_args(self):
 		
 		#
-		self.ensure_local_directory(self.make_log_directory_path())
 		args = [
 			"rsync",
-			"--log-file", self.make_log_path(),
 			"--archive",
 			"--compress",
 			"--progress",
@@ -637,6 +635,13 @@ class MikesBackup:
 			"--delete",
 			"--delete-excluded"
 		]
+		
+		log_dir = self.make_log_directory_path()
+		log_path = self.make_log_path()
+		if log_dir and log_path:
+			self.ensure_local_directory(log_dir)
+			args.append("--log-file")
+			args.append(log_path)
 		
 		#
 		for i in self.__source_dir_includes:
