@@ -4,6 +4,7 @@
 #
 import datetime
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -19,7 +20,8 @@ class MikesBackup:
 	__remote_user = None
 	__destination_dir_base = None
 	
-	__source_dirs = []
+	__source_dir = None
+	__source_dir_includes = []
 	__source_dir_excludes = []
 	__source_mountpoint_demands = []
 	
@@ -28,6 +30,9 @@ class MikesBackup:
 	
 	__force_full = False
 	__force_differential = False
+	
+	CONST_FULL_DIRECTORY_NAME = "Full"
+	CONST_DIFFERENTIAL_DIRECTORY_NAME = "Differential"
 	
 	#
 	def __init__(self):
@@ -44,7 +49,8 @@ class MikesBackup:
 		s += "\nRemote Host: " + str(self.__remote_host)
 		s += "\nRemote User: " + str(self.__remote_user)
 		s += "\nDestination Dir Base: " + str(self.__destination_dir_base)
-		s += "\nSource Dirs: " + str(self.__source_dirs)
+		s += "\nSource Dir (Main): " + str(self.__source_dir)
+		s += "\nSource Dirs (Includes): " + str(self.__source_dir_includes)
 		s += "\nSource Dir Excludes: " + str(self.__source_dir_excludes)
 		s += "\nSource Mountpoint Demands: " + str(self.__source_mountpoint_demands)
 		s += "\nSSH Key: " + str(self.__ssh_key)
@@ -105,13 +111,13 @@ class MikesBackup:
 				a = a + 1
 			elif arg == "--source-dir":
 				valid_arg = True
-				self.__source_dirs.append(sys.argv[a + 1])
+				self.__source_dir = sys.argv[a + 1]
 				self.log("Found source dir: " + sys.argv[a + 1])
 				a = a + 1
-			elif arg == "--exclude":
+			elif arg == "--include":
 				valid_arg = True
-				self.__source_dir_excludes.append(sys.argv[a + 1])
-				self.log("Found exclude dir: " + sys.argv[a + 1])
+				self.__source_dir_includes.append(sys.argv[a + 1])
+				self.log("Found additional source dir include: " + sys.argv[a + 1])
 				a = a + 1
 			elif arg == "--source-mountpoint":
 				valid_arg = True
@@ -122,6 +128,11 @@ class MikesBackup:
 				valid_arg = True
 				self.__destination_dir_base = sys.argv[a + 1]
 				self.log("Found destination dir: " + self.__destination_dir_base)
+				a = a + 1
+			elif arg == "--exclude":
+				valid_arg = True
+				self.__source_dir_excludes.append(sys.argv[a + 1])
+				self.log("Found exclude dir: " + sys.argv[a + 1])
 				a = a + 1
 			elif arg == "--remote-host":
 				valid_arg = True
@@ -187,6 +198,13 @@ class MikesBackup:
 				raise Exception("Please provide remote user")
 	
 	#
+	def demand_source_directory_config(self):
+		
+		#
+		if self.__source_dir is None:
+			raise Exception("Please provide a source directory")
+	
+	#
 	def demand_destination_directory_config(self):
 		
 		#
@@ -249,15 +267,6 @@ class MikesBackup:
 		return self.does_destination_directory_exist(dir_path)
 	
 	#
-	def get_source_directories(self):
-		
-		#
-		if len(self.__source_dirs) == 0:
-			raise Exception("No source directories specified")
-		
-		return self.__source_dirs
-	
-	#
 	def do_backup(self):
 		
 		#
@@ -269,8 +278,6 @@ class MikesBackup:
 		
 		# Remote base dir must exist
 		self.demand_destination_base_backup_directory()
-		
-		raise Exception("Just testing")
 		
 		# Forced full or differential by args?
 		if self.__force_full is True or self.__force_differential is True:
@@ -290,7 +297,7 @@ class MikesBackup:
 			self.log("Automatically choosing full backup, because full backup destination directory wasn't found")
 			self.do_full_backup()
 	
-	#
+	# TODO: Full backups should clean out the differentials directory
 	def do_full_backup(self):
 		
 		# Start args
@@ -299,8 +306,8 @@ class MikesBackup:
 		# Get destination directory
 		destination_dir = self.make_full_backup_destination_path()
 		
-		# Append source directories
-		args.extend(self.get_source_directories())
+		# Append source directory
+		args.append(self.make_rsync_source_directory_part())
 		
 		# Append remote destination directory
 		# args.append( self.__remote_user + "@" + self.__remote_host + ":" + remote_dir)
@@ -318,24 +325,24 @@ class MikesBackup:
 		args = []
 		
 		# Get directories
-		link_dest_dir = self.make_full_backup_destination_path()
+		link_dest_dir = self.determine_rsync_backup_link_destination_path()
 		destination_dir = self.make_remote_differential_backup_path()
 		self.ensure_destination_directory(destination_dir)
 		
-		# Add link dest arg
-		args.append("--link-dest")
-		args.append(link_dest_dir)
+		# Add link dest arg?
+		if link_dest_dir:
+			args.append("--link-dest")
+			args.append(link_dest_dir)
 		
-		# Append source directories
-		args.extend(self.get_source_directories())
+		# Append source directory
+		args.append(self.make_rsync_source_directory_part())
 		
 		# Append remote destination directory
-		# args.append( self.__remote_user + "@" + self.__remote_host + ":" + remote_dir)
 		args.append(self.make_rsync_remote_destination_part(destination_dir))
 		
 		# print("Args", str(args))
-		self.log("Link destination dir:" + link_dest_dir)
-		self.log("Destination dir:" + destination_dir)
+		self.log("Link destination dir: " + link_dest_dir)
+		self.log("Destination dir: " + destination_dir)
 		
 		self.execute_rsync(args)
 	
@@ -369,17 +376,43 @@ class MikesBackup:
 			raise Exception("No remote directory was specified")
 		
 		#
-		return os.path.join(self.__destination_dir_base, "Full")
+		return os.path.join(self.__destination_dir_base, self.CONST_FULL_DIRECTORY_NAME)
 	
 	#
-	def make_remote_differential_backup_path(self):
+	def make_remote_differential_backup_path_base(self):
 		
 		#
 		if self.__destination_dir_base is None:
 			raise Exception("No remote directory was specified")
 		
+		return os.path.join(self.__destination_dir_base, self.CONST_DIFFERENTIAL_DIRECTORY_NAME)
+	
+	#
+	def make_remote_differential_backup_path(self):
+		
+		diff_path_base = self.make_remote_differential_backup_path_base()
+		
 		#
-		return os.path.join(self.__destination_dir_base, "Differential", self.get_datetime_for_filename())
+		return os.path.join(diff_path_base, self.get_datetime_for_filename())
+	
+	#
+	def make_rsync_source_includes_part(self):
+		
+		args = []
+		
+		for d in self.__source_dir_includes:
+			args.append("--include")
+			args.append(d)
+		
+		return args
+	
+	#
+	def make_rsync_source_directory_part(self):
+		
+		self.demand_source_directory_config()
+		
+		#
+		return self.__source_dir
 	
 	#
 	def make_rsync_remote_destination_part(self, destination_dir):
@@ -397,6 +430,86 @@ class MikesBackup:
 		part += destination_dir
 		
 		return part
+	
+	#
+	def determine_rsync_backup_link_destination_path(self):
+		
+		self.demand_destination_directory_config()
+		
+		self.log("Begin trying to determine which previous backup path to use as link")
+		
+		#
+		newest_path = None
+		newest_path_date = None
+		
+		# Pattern to parse the 'ls' command
+		pattern = re.compile(
+			""".*(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{9} .{5}) (?P<name>.+)$""",
+			re.MULTILINE
+		)
+		
+		# Get listing info for the full path
+		destination_path_full = self.make_full_backup_destination_path()
+		return_code, stdout, stderr = self.execute_remote_ssh_command([
+			"ls",
+			"-l",
+			"-c",
+			"--all",
+			"--full-time",
+			destination_path_full
+		])
+		if return_code != 0:
+			raise Exception("Failed to get listing info for base destination directory")
+		for match in pattern.finditer(stdout):
+			
+			name = match.group("name")
+			date = match.group("date")
+			if name == ".":
+				self.log("Start by assuming \"Full\" is the most recent backup: " + destination_path_full)
+				self.log("; With a date of " + date)
+				newest_path = destination_path_full
+				newest_path_date = date
+				break
+		if not newest_path:
+			self.log("Didn't find a \"Full\" backup on remote")
+		
+		# TODO: Need to use a temp name for diff directories, so interrupted diffs don't get used
+		# TODO: Allow user to specify whether rsync success is only return 0, or also 23/24 (partial xfers)
+		# Get listing info for all differential directories
+		differential_path_base = self.make_remote_differential_backup_path_base()
+		return_code, stdout, stderr = self.execute_remote_ssh_command([
+			"ls",
+			"-l",
+			"-c",
+			"--all",
+			"--full-time",
+			differential_path_base
+		])
+		if return_code != 0:
+			raise Exception("Failed to get listing info for destination differential base directory")
+		
+		# Look for the most recent differential directory
+		# (must be newer than the Full directory too)
+		for match in pattern.finditer(stdout):
+			
+			name = match.group("name")
+			date = match.group("date")
+			
+			if name == "." or name == "..":
+				continue
+			
+			if newest_path is None or date > newest_path_date:
+				self.log("Found a newer differential backup: " + name + "; " + date)
+				newest_path = os.path.join(differential_path_base, name)
+				newest_path_date = date
+			else:
+				self.log("Not newer: " + name + "; " + date)
+		
+		#
+		self.log("Newest backup path is: " + newest_path)
+		self.log("; With a date of: " + newest_path_date)
+		
+		return newest_path
 	
 	@staticmethod
 	def ensure_local_directory(d):
@@ -443,6 +556,11 @@ class MikesBackup:
 			"--delete",
 			"--delete-excluded"
 		]
+		
+		#
+		for i in self.__source_dir_includes:
+			args.append("--include")
+			args.append(i)
 		
 		#
 		for e in self.__source_dir_excludes:
@@ -504,12 +622,16 @@ class MikesBackup:
 			raise Exception("Unsupported command datatype")
 		
 		# Spawn SSH in shell
-		# process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		process = subprocess.Popen(args)
-		# stdout, stderr = process.communicate()
-		process.communicate()
-		stdout = ""
-		stderr = ""
+		process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		# process = subprocess.Popen(args)
+		stdout, stderr = process.communicate()
+		
+		stdout = stdout.decode()
+		stderr = stderr.decode()
+		
+		# process.communicate()
+		# stdout = ""
+		# stderr = ""
 		# print(stderr.decode())
 		
 		return process.returncode, stdout, stderr
@@ -518,6 +640,7 @@ class MikesBackup:
 	def execute_rsync(self, _args):
 		
 		# Demand stuff
+		self.demand_source_directory_config()
 		self.demand_destination_directory_config()
 		if self.is_using_ssh():
 			self.demand_ssh_config()
@@ -529,6 +652,10 @@ class MikesBackup:
 		
 		#
 		env = self.start_rsync_environment_variables()
+		
+		#
+		self.log("Executing rsync with the following arguments:", args)
+		self.log("; And the following environment:", env)
 		
 		#
 		# print("Debug -> Want to execute Rsync")
