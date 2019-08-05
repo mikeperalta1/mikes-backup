@@ -35,6 +35,7 @@ class MikesBackup:
 	
 	CONST_FULL_DIRECTORY_NAME = "Full"
 	CONST_DIFFERENTIAL_DIRECTORY_NAME = "Differential"
+	CONST_DIFFERENTIAL_IN_PROGRESS_DIRECTORY_NAME = "IN-PROGRESS"
 	
 	#
 	def __init__(self):
@@ -360,8 +361,9 @@ class MikesBackup:
 		
 		# Get directories
 		link_dest_dir = self.determine_rsync_backup_link_destination_path()
-		destination_dir = self.make_remote_differential_backup_path()
-		self.ensure_destination_directory(destination_dir)
+		destination_dir_in_progress = self.make_remote_differential_in_progress_backup_path()
+		destination_dir_final = self.make_remote_differential_backup_path()
+		self.ensure_destination_directory(destination_dir_in_progress)
 		
 		# Add link dest arg?
 		if link_dest_dir:
@@ -372,13 +374,19 @@ class MikesBackup:
 		args.append(self.make_rsync_source_directory_part())
 		
 		# Append remote destination directory
-		args.append(self.make_rsync_remote_destination_part(destination_dir))
+		args.append(self.make_rsync_remote_destination_part(destination_dir_in_progress))
 		
-		# print("Args", str(args))
 		self.log("Link destination dir: " + link_dest_dir)
-		self.log("Destination dir: " + destination_dir)
+		self.log("Destination dir: " + destination_dir_in_progress)
 		
 		self.execute_rsync(args)
+		
+		self.log("Rsync seems to have finished successfully")
+		self.log("Renaming temporary directory")
+		self.log("Old: " + destination_dir_in_progress)
+		self.log("New: " + destination_dir_final)
+		os.rename(destination_dir_in_progress, destination_dir_final)
+		self.log("Rename was successful")
 	
 	#
 	def make_log_directory_path(self):
@@ -420,6 +428,13 @@ class MikesBackup:
 			raise Exception("No remote directory was specified")
 		
 		return os.path.join(self.__destination_dir_base, self.CONST_DIFFERENTIAL_DIRECTORY_NAME)
+		
+	#
+	def make_remote_differential_in_progress_backup_path(self):
+		
+		diff_path_base = self.make_remote_differential_backup_path_base()
+		
+		return os.path.join(diff_path_base, self.CONST_DIFFERENTIAL_IN_PROGRESS_DIRECTORY_NAME)
 	
 	#
 	def make_remote_differential_backup_path(self):
@@ -507,7 +522,6 @@ class MikesBackup:
 		if not newest_path:
 			self.log("Didn't find a \"Full\" backup on remote")
 		
-		# TODO: Need to use a temp name for diff directories, so interrupted diffs don't get used
 		# TODO: Allow user to specify whether rsync success is only return 0, or also 23/24 (partial xfers)
 		# Get listing info for all differential directories
 		differential_path_base = self.make_remote_differential_backup_path_base()
