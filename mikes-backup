@@ -334,7 +334,7 @@ class MikesBackup:
 			self.log("Automatically choosing full backup, because full backup destination directory wasn't found")
 			self.do_full_backup()
 	
-	# TODO: Full backups should clean out the differentials directory
+	#
 	def do_full_backup(self):
 		
 		# Start args
@@ -354,6 +354,16 @@ class MikesBackup:
 		self.log("Destination dir:" + destination_dir)
 		
 		self.execute_rsync(args)
+		
+		self.log("Rsync seems to have finished successfully")
+		self.log("Because a full backup has succeeded, will now delete any differential backups")
+		self.execute_remote_ssh_command(
+			[
+				"rm",
+				"-rfv",
+				self.make_remote_differential_backup_path_base()
+			])
+		self.log("Finished deleting old differentials")
 	
 	#
 	def do_differential_backup(self):
