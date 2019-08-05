@@ -31,6 +31,8 @@ class MikesBackup:
 	__force_full = False
 	__force_differential = False
 	
+	__log_file_handle = None
+	
 	CONST_FULL_DIRECTORY_NAME = "Full"
 	CONST_DIFFERENTIAL_DIRECTORY_NAME = "Differential"
 	
@@ -38,6 +40,11 @@ class MikesBackup:
 	def __init__(self):
 		
 		self.parse_args()
+	
+	#
+	def __del__(self):
+		
+		self.close_log_file()
 	
 	#
 	def __str__(self):
@@ -67,13 +74,40 @@ class MikesBackup:
 		
 		to_log = "[MikesBackup][" + the_date + "] " + s
 		
+		# Print the log line
 		print(to_log)
+		
+		# Append the log line to the log file
+		log_file_path = self.make_log_path()
+		if log_file_path:
+			f = open(log_file_path, "a+")
+			f.write(to_log + "\n")
+			f.close()
 		
 		# Recurse in order to print whatever o is outputting, if anything
 		if o is not None:
 			o_lines = str(o).split("\n")
 			for line in o_lines:
 				self.log(line)
+	
+	#
+	def open_log_file(self):
+		
+		if self.__log_file_handle:
+			return self.__log_file_handle
+		
+		log_file_path = self.make_log_path()
+		if log_file_path:
+			self.__log_file_handle = open(log_file_path, "w")
+		
+		return self.__log_file_handle
+	
+	#
+	def close_log_file(self):
+		
+		if self.__log_file_handle:
+			self.__log_file_handle.close()
+			self.__log_file_handle = None
 	
 	#
 	def eprint(*args, **kwargs):
@@ -352,7 +386,7 @@ class MikesBackup:
 		#
 		log_dir = self.__log_dir
 		if log_dir is None:
-			self.log("No log directory specified; Defaulting to current working directory")
+			print("No log directory specified; Defaulting to current working directory")
 			log_dir = "."
 		
 		return log_dir
