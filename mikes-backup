@@ -543,7 +543,7 @@ class MikesBackup:
 			name = match.group("name")
 			date = match.group("date")
 			
-			if name == "." or name == "..":
+			if name == "." or name == ".." or name == self.CONST_DIFFERENTIAL_IN_PROGRESS_DIRECTORY_NAME:
 				continue
 			
 			if newest_path is None or date > newest_path_date:
