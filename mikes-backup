@@ -136,9 +136,11 @@ class MikesBackup:
 			elif arg == "--full":
 				valid_arg = True
 				self.__force_full = True
+				self.log("Forcing a full backup")
 			elif arg == "--diff" or arg == "--differential":
 				valid_arg = True
 				self.__force_differential = True
+				self.log("Forcing a differential backup")
 			elif arg == "--log-dir":
 				valid_arg = True
 				self.__log_dir = sys.argv[a + 1]
