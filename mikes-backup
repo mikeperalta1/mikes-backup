@@ -210,6 +210,11 @@ class MikesBackup:
 		return datetime.datetime.now().strftime('%Y-%b-%d_%I%M%p')
 	
 	#
+	def is_using_source_mountpoints(self):
+	
+		return len(self.__source_mountpoint_demands) > 0
+	
+	#
 	def demand_source_mountpoints(self):
 		
 		for mountpoint_path in self.__source_mountpoint_demands:
@@ -631,7 +636,6 @@ class MikesBackup:
 			"--stats",
 			"--human-readable",
 			"--itemize-changes",
-			"--one-file-system",
 			"--delete",
 			"--delete-excluded"
 		]
@@ -642,6 +646,11 @@ class MikesBackup:
 			self.ensure_local_directory(log_dir)
 			args.append("--log-file")
 			args.append(log_path)
+		
+		# Only allow recursion into multiple file systems
+		# if any mountpoints were specified
+		if not self.is_using_source_mountpoints():
+			args.append("--one-file-system")
 		
 		#
 		for i in self.__source_dir_includes:
