@@ -154,6 +154,8 @@ class MikesBackup:
 				a = a + 1
 			elif arg == "--source-dir":
 				valid_arg = True
+				if self.__source_dir:
+					raise Exception("--source-dir can only be used once")
 				self.__source_dir = sys.argv[a + 1]
 				self.log("Found source dir: " + sys.argv[a + 1])
 				a = a + 1
