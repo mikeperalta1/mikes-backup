@@ -14,13 +14,16 @@ This script is really just a wrapper around rsync's beautiful functionality. It 
 ## Command Line Arguments
 * ```--full``` Forces the script to run a *full* backup
 * ```--differential``` Forces the script to run a *differential* backup
+* ```--diff``` Same as ```---differential```
 * ```--log-dir <directory>``` Let's you set the log output directory
 * ```--source-dir <directory>``` Specifies the local source directory
+* ```--include <directory>``` Specifies another local source directory to include in the backup
+* ```--source-mountpoint <directory>``` Make sure a local mountpoint is mounted before continuing
 * ```--destination-dir <directory>``` Specifies the backup destination directory
+* ```--exclude <dir>``` Specifies a source directory to exclude (can be passed multiple times)
 * ```--remote-host <hostname>``` Specifies the remote host, if your backup destination is an SSH server
 * ```--remote-user <username>``` Specifies the remote username to use, if your backup destination is an SSH server
 * ```--ssh-key <path to key>``` Specifies the local SSH key to use for authentication, if your backup destination is an SSH server
-* ```--exclude <dir>``` Specifies a source directory to exclude (can be passed multiple times)
 
 Note that ```--remote-host```, ```--remote-user```, and ```--ssh-key``` are only needed if your backup destination is a remote SSH server. You may omit all three if the destination is a locally mounted folder.
 
