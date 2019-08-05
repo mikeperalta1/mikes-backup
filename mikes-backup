@@ -14,25 +14,29 @@ class MikesBackup:
 	
 	#
 	__log_dir = None
+	
 	__remote_host = None
 	__remote_user = None
 	__destination_dir_base = None
-	#
-	__ssh_key = None
-	__quiet_ssh = True
-	#
+	
 	__source_dirs = []
 	__source_dir_excludes = []
-	#
+	__source_mountpoint_demands = []
+	
+	__ssh_key = None
+	__quiet_ssh = True
+	
 	__force_full = False
 	__force_differential = False
 	
 	#
 	def __init__(self):
+		
 		self.parse_args()
 	
 	#
 	def eprint(*args, **kwargs):
+		
 		print(*args, file=sys.stderr, **kwargs)
 	
 	#
@@ -50,8 +54,10 @@ class MikesBackup:
 		#
 		print()
 		print("Parsing arguments")
-		a = 1
-		while a < len(sys.argv):
+		a = 0
+		while a + 1 < len(sys.argv):
+			
+			a += 1
 			
 			#
 			arg = sys.argv[a]
@@ -85,8 +91,11 @@ class MikesBackup:
 				self.__source_dir_excludes.append(sys.argv[a + 1])
 				print("Found exclude dir:", sys.argv[a + 1])
 				a = a + 1
-			
-			a = a + 1
+			elif arg == "--source-mountpoint":
+				valid_arg = True
+				self.__source_mountpoint_demands.append(sys.argv[a + 1])
+				print("Found demanded source mountpoint:", sys.argv[a + 1])
+				a += 1
 			
 			#
 			if not valid_arg:
@@ -97,6 +106,14 @@ class MikesBackup:
 		
 		#
 		return datetime.datetime.now().strftime('%Y-%b-%d_%I%M%p')
+	
+	#
+	def demand_source_mountpoints(self):
+		
+		for mountpoint_path in self.__source_mountpoint_demands:
+			if not os.path.ismount(mountpoint_path):
+				raise Exception("Demanded mountpoint is not mounted: " + str(mountpoint_path))
+			print("Verified mountpoint:", mountpoint_path)
 	
 	#
 	def is_using_ssh(self):
@@ -198,6 +215,9 @@ class MikesBackup:
 		#
 		print()
 		print("Enter: do_backup")
+		
+		# Source mountpoints must be mounted
+		self.demand_source_mountpoints()
 		
 		# Remote base dir must exist
 		self.demand_destination_base_backup_directory()
