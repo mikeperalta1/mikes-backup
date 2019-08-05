@@ -35,6 +35,26 @@ class MikesBackup:
 		self.parse_args()
 	
 	#
+	def __str__(self):
+		
+		s = ""
+		
+		s += "MikesBackup Class Instance"
+		s += "\nLog Dir: " + str(self.__log_dir)
+		s += "\nRemote Host: " + str(self.__remote_host)
+		s += "\nRemote User: " + str(self.__remote_user)
+		s += "\nDestination Dir Base: " + str(self.__destination_dir_base)
+		s += "\nSource Dirs: " + str(self.__source_dirs)
+		s += "\nSource Dir Excludes: " + str(self.__source_dir_excludes)
+		s += "\nSource Mountpoint Demands: " + str(self.__source_mountpoint_demands)
+		s += "\nSSH Key: " + str(self.__ssh_key)
+		s += "\nQuiet SSH: " + str(self.__quiet_ssh)
+		s += "\nForce Full Backup: " + str(self.__force_full)
+		s += "\nForce Differential: " + str(self.__force_differential)
+		
+		return s
+	
+	#
 	def log(self, s, o=None):
 	
 		the_date = self.get_datetime_for_logging()
