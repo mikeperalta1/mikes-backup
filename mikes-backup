@@ -522,7 +522,7 @@ class MikesBackup:
 		if not newest_path:
 			self.log("Didn't find a \"Full\" backup on remote")
 		
-		# TODO: Allow user to specify whether rsync success is only return 0, or also 23/24 (partial xfers)
+		# TODO: Add CLI option to disable incrementals (ie: don't consider the diff dirs for the rsync link arg)
 		# Get listing info for all differential directories
 		differential_path_base = self.make_remote_differential_backup_path_base()
 		return_code, stdout, stderr = self.execute_remote_ssh_command([
@@ -721,7 +721,14 @@ class MikesBackup:
 		stdout = ""
 		stderr = ""
 		
-		return process.returncode, stdout, stderr
+		# Check return code
+		# 0 = Success
+		# 24 = Source files vanished
+		return_code = process.returncode
+		if return_code != 0 and return_code != 24:
+			raise Exception("Rsync seems to have failed somehow! Got return code: " + str(return_code))
+		
+		return return_code, stdout, stderr
 
 
 def main():
