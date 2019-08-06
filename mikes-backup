@@ -533,18 +533,21 @@ class MikesBackup:
 		
 		# Get listing info for the full path
 		destination_path_full = self.make_full_backup_destination_path()
-		return_code, stdout, stderr = self.execute_remote_ssh_command([
+		args_full_destination_path_ls = [
 			"ls",
 			"-l",
 			"-c",
 			"--all",
 			"--full-time",
 			destination_path_full
-		])
+		]
+		if self.is_using_ssh():
+			return_code, stdout, stderr = self.execute_remote_ssh_command(args_full_destination_path_ls)
+		else:
+			return_code, stdout, stderr = self.execute_command(args_full_destination_path_ls)
 		if return_code != 0:
 			raise Exception("Failed to get listing info for base destination directory")
 		for match in pattern.finditer(stdout):
-			
 			name = match.group("name")
 			date = match.group("date")
 			if name == ".":
@@ -563,14 +566,18 @@ class MikesBackup:
 		# Get listing info for all differential directories
 		differential_path_base = self.make_remote_differential_backup_path_base()
 		self.ensure_destination_directory(differential_path_base)
-		return_code, stdout, stderr = self.execute_remote_ssh_command([
+		args_differential_destination_path_ls = [
 			"ls",
 			"-l",
 			"-c",
 			"--all",
 			"--full-time",
 			differential_path_base
-		])
+		]
+		if self.is_using_ssh():
+			return_code, stdout, stderr = self.execute_remote_ssh_command(args_differential_destination_path_ls)
+		else:
+			return_code, stdout, stderr = self.execute_command(args_differential_destination_path_ls)
 		if return_code != 0:
 			raise Exception("Failed to get listing info for destination differential base directory")
 		
@@ -683,6 +690,29 @@ class MikesBackup:
 		
 		return env
 	
+	@staticmethod
+	def execute_command(command):
+		
+		#
+		args = list()
+		
+		# Append the command
+		if isinstance(command, str):
+			args.append(command)
+		elif isinstance(command, list):
+			args.extend(command)
+		else:
+			raise Exception("Unsupported command datatype")
+		
+		# Spawn
+		process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		stdout, stderr = process.communicate()
+		
+		stdout = stdout.decode()
+		stderr = stderr.decode()
+		
+		return process.returncode, stdout, stderr
+	
 	#
 	def execute_remote_ssh_command(self, command):
 		
@@ -716,7 +746,7 @@ class MikesBackup:
 		else:
 			raise Exception("Unsupported command datatype")
 		
-		# Spawn SSH in shell
+		# Spawn
 		process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		# process = subprocess.Popen(args)
 		stdout, stderr = process.communicate()
