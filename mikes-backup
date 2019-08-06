@@ -165,7 +165,7 @@ class MikesBackup:
 			elif arg == "--source-mountpoint":
 				valid_arg = True
 				self.__source_mountpoint_demands.append(sys.argv[a + 1])
-				self.log("Found demanded source mountpoint: " + sys.argv[a + 1])
+				self.log("Found required source mountpoint: " + sys.argv[a + 1])
 				a += 1
 			elif arg == "--destination-dir":
 				valid_arg = True
@@ -219,7 +219,7 @@ class MikesBackup:
 		
 		for mountpoint_path in self.__source_mountpoint_demands:
 			if not os.path.ismount(mountpoint_path):
-				raise Exception("Demanded mountpoint is not mounted: " + str(mountpoint_path))
+				raise Exception("Required mountpoint is not mounted: " + str(mountpoint_path))
 			self.log("Verified mountpoint: " + mountpoint_path)
 	
 	#
