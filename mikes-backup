@@ -15,6 +15,7 @@ class MikesBackup:
 	
 	#
 	__log_dir = None
+	__log_name = None
 	
 	__remote_host = None
 	__remote_user = None
@@ -55,6 +56,7 @@ class MikesBackup:
 		
 		s += "MikesBackup Class Instance"
 		s += "\nLog Dir: " + str(self.__log_dir)
+		s += "\nLog Name: " + str(self.__log_name)
 		s += "\nRemote Host: " + str(self.__remote_host)
 		s += "\nRemote User: " + str(self.__remote_user)
 		s += "\nDestination Dir Base: " + str(self.__destination_dir_base)
@@ -149,6 +151,12 @@ class MikesBackup:
 				valid_arg = True
 				self.__log_dir = sys.argv[a + 1]
 				self.log("Found log dir: " + self.__log_dir)
+				a = a + 1
+			elif arg == "--log-name":
+				valid_arg = True
+				self.__log_name = sys.argv[a + 1]
+				self.log("Found log name: " + self.__log_name)
+				self.close_log_file()
 				a = a + 1
 			elif arg == "--source-dir":
 				valid_arg = True
@@ -439,8 +447,14 @@ class MikesBackup:
 		if not log_dir:
 			return None
 		
+		# Filename
+		file_name = self.get_datetime_for_filename()
+		if self.__log_name:
+			file_name += "-" + self.__log_name
+		file_name += ".log"
+		
 		# Path
-		log_path = os.path.join(log_dir, self.get_datetime_for_filename() + ".log")
+		log_path = os.path.join(log_dir, file_name)
 		
 		return log_path
 	

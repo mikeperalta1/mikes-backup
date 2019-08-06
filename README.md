@@ -17,6 +17,7 @@ This script is really just a wrapper around rsync's beautiful functionality. It 
 * ```--diff``` Same as ```---differential```
 * ```--no-incremental``` Always force differentials to link back to the *full* backup, and not the most recent *differential*
 * ```--log-dir <directory>``` Let's you set the log output directory
+* ```--log-name``` Let's you set a name to the log file
 * ```--source-dir <directory>``` Specifies the local source directory
 * ```--include <directory>``` Specifies another local source directory to include in the backup
 * ```--source-mountpoint <directory>``` Make sure a local mountpoint is mounted before continuing
