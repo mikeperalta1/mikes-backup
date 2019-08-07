@@ -376,12 +376,15 @@ class MikesBackup:
 		
 		self.log("Rsync seems to have finished successfully")
 		self.log("Because a full backup has succeeded, will now delete any differential backups")
-		self.execute_remote_ssh_command(
-			[
-				"rm",
-				"-rfv",
-				self.make_remote_differential_backup_path_base()
-			])
+		args_remove_differentials = [
+			"rm",
+			"-rfv",
+			self.make_remote_differential_backup_path_base()
+		]
+		if self.is_using_ssh():
+			self.execute_remote_ssh_command(args_remove_differentials)
+		else:
+			self.execute_command(args_remove_differentials)
 		self.log("Finished deleting old differentials")
 	
 	#
