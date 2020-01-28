@@ -284,7 +284,7 @@ class MikesBackup:
 				return False
 		
 		#
-		self.log("Checking for remote destination path")
+		self.log("Checking for remote destination path: " + destination_path)
 		command = [
 			"[ -d " + destination_path + " ]"
 		]
@@ -764,6 +764,7 @@ class MikesBackup:
 			raise Exception("Unsupported command datatype")
 		
 		# Spawn
+		# print(args)
 		process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		# process = subprocess.Popen(args)
 		stdout, stderr = process.communicate()
