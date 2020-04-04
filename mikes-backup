@@ -658,8 +658,11 @@ class MikesBackup:
 			"--compress",
 			"--progress",
 			"--stats",
+			"--verbose",
 			"--human-readable",
 			"--itemize-changes",
+			"--no-links",
+			"--one-file-system",
 			"--delete",
 			"--delete-excluded"
 		]
