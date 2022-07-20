@@ -1,10 +1,17 @@
 # Mikes Backup
+
+*** Currently Archived; Read Section Below ***
+
 Easily run both *full* and *differential* backups with rsync, to a local folder or an SSH server.
 
 This script is really just a wrapper around rsync's beautiful functionality. It presents a simplified interface for one very narrow use case: Simplifying the process of running daily backups:
 * You may easily force a *full* of *differential* backup type with a simple command line argument (see below)
 * Otherwise, it will automatically choose a *full* or *differential* backup type, based on whether it detects an existing *full* backup folder at the backup destination
 * For *differential* backups, it automatically generates a folder based on today's date and time, making it easier to store many differentials without the need to manually fuss with anything
+
+## Archive Status
+
+I've decided to discontinue development of this project because [restic](https://restic.net/) is so much more robust, useful, and cool. *Mike's Backup* still works as of this writing (2022-07-20), but I've moved all my personal backups over to restic.
 
 ## Requirements
 * rsync
